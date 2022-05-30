@@ -5,13 +5,13 @@
 
 // Constant definitions
 #define CELL_SIZE 10
-#define GRID_WIDTH 100
-#define GRID_HEIGHT 100
+#define GRID_WIDTH 70
+#define GRID_HEIGHT 70
 #define SCREEN_WIDTH (GRID_WIDTH * CELL_SIZE)
 #define SCREEN_HEIGHT (GRID_HEIGHT * CELL_SIZE)
 
-// define a 'state' type to assign to each cell
-typedef enum {ALIVE, DEAD} State;
+// define a 'CellState' type to assign to each cell
+typedef enum {ALIVE, DEAD} CellState;
 
 // SDL related functions
 SDL_Window *createWindow(char *title);
@@ -31,13 +31,18 @@ int main(int argc, char *argv[]){
 	SDL_Window *window = createWindow("Game of Life");
 	SDL_Renderer *renderer = createRenderer(window);
 
+	SDL_Rect border = {0, 0, (GRID_WIDTH * CELL_SIZE), (GRID_HEIGHT * CELL_SIZE)};
+
 	// Setup event handling + mouse co-ordinate handling
 	SDL_Event event;
 	int mouseX, mouseY;
 	bool mouse_left_down = false;
 	bool mouse_right_down = false;
 
-	// Set all cells to initial state of dead
+	// Define if simulation is running or paused. Initially paused.
+	bool running = false;
+
+	// Set all cells to initial CellState of dead
 	int cells[GRID_HEIGHT][GRID_WIDTH];
 	int cx, cy;
 	for(cy = 0; cy < GRID_HEIGHT; cy++){
@@ -61,20 +66,33 @@ int main(int argc, char *argv[]){
 						case SDL_BUTTON_RIGHT: mouse_right_down = !mouse_right_down; break;
 					}
 
-				// If user presses space, simulate a single change
+				// Switch between running/pausing simulation
 				case SDL_KEYDOWN:
-					if(event.key.keysym.sym == SDLK_SPACE)
-						updateCells(cells);
-					
+					if(event.key.keysym.sym == SDLK_SPACE){
+						//updateCells(cells);
+						// Change simulation state
+						running = !running;
+						if(running){
+							SDL_SetWindowTitle(window, "Game of Life - Running");
+						} else{
+							SDL_SetWindowTitle(window, "Game of Life - Paused");
+						}
+						
+					}
 			}
 		}
 
-		// Get user mouse button input - left click gives life to cell at current co-ords, right click kills
-		SDL_GetMouseState(&mouseX, &mouseY);
-		if(mouse_left_down == true)
-			cells[mouseY / CELL_SIZE][mouseX / CELL_SIZE] = ALIVE;
-		else if(mouse_right_down == true)
-			cells[mouseY / CELL_SIZE][mouseX / CELL_SIZE] = DEAD;
+		if(!running){
+			// Get user mouse button input - left click gives life to cell at current co-ords, right click kills
+			SDL_GetMouseState(&mouseX, &mouseY);
+			if(mouse_left_down == true){
+				cells[mouseY / CELL_SIZE][mouseX / CELL_SIZE] = ALIVE;
+			} else if(mouse_right_down == true){
+				cells[mouseY / CELL_SIZE][mouseX / CELL_SIZE] = DEAD;
+			}
+		} else{
+			updateCells(cells);
+		}
 
 		// Set screen colour to white
 		SDL_SetRenderDrawColor(renderer, 255, 255, 255, 255);
@@ -85,6 +103,12 @@ int main(int argc, char *argv[]){
 		// Draw the grid and living cells
 		drawGrid(renderer);
 		drawCells(renderer, cells);
+
+		// Draw red border to indicate simulation paused (if necessary)
+		if(!running){
+			SDL_SetRenderDrawColor(renderer, 255, 0, 0, 255);
+			SDL_RenderDrawRect(renderer, &border);
+		}
 
 		// Update screen
 		SDL_RenderPresent(renderer);
@@ -144,7 +168,7 @@ void updateCells(int a[][GRID_WIDTH]){
 }
 
 // THERE'S NO ERROR CHECKING HERE WHICH IS BAD
-// Should ideally check if a cell even exists before checking its state
+// Should ideally check if a cell even exists before checking its CellState
 int countLivingNeighbours(int a[][GRID_WIDTH], int x, int y){
 	int count = 0, cx, cy;
 
@@ -233,7 +257,7 @@ SDL_Renderer *createRenderer(SDL_Window *window){
 	SDL_Renderer *renderer = SDL_CreateRenderer(
 		window,						// Window
 		-1,							// Monitor index (-1 for first available)
-		SDL_RENDERER_ACCELERATED	// Flags
+		SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC	// Flags
 	);
 
 	if(renderer == NULL){
